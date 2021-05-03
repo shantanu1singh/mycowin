@@ -1,10 +1,48 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:cowin_api/api.dart';
+import 'package:cowin_api/model/session_calendar_entry_schema.dart';
+import 'package:intl/intl.dart';
+import 'package:built_collection/built_collection.dart';
 
 void main() {
   runApp(MyApp());
+}
+
+/// Creates instance of [Dio] to be used in the remote layer of the app.
+Dio createDio(BaseOptions baseConfiguration) {
+  var dio = Dio(baseConfiguration);
+  dio.interceptors.addAll([
+    // interceptor to retry failed requests
+    // interceptor to add bearer token to requests
+    // interceptor to refresh access tokens
+    // interceptor to log requests/responses
+    // etc.
+  ]);
+
+  return dio;
+}
+
+/// Creates Dio Options for initializing a Dio client.
+///
+/// [baseUrl] Base url for the configuration
+/// [connectionTimeout] Timeout when sending data
+/// [connectionReadTimeout] Timeout when receiving data
+BaseOptions createDioOptions(
+    String baseUrl, int connectionTimeout, int connectionReadTimeout) {
+  return BaseOptions(
+    baseUrl: baseUrl,
+    connectTimeout: connectionTimeout,
+    receiveTimeout: connectionReadTimeout,
+  );
+}
+
+/// Creates an instance of the backend API with default options.
+CowinApi createMyApi() {
+  const baseUrl = 'https://cdn-api.co-vin.in/api';
+  final options = createDioOptions(baseUrl, 10000, 10000);
+  final dio = createDio(options);
+  return CowinApi(dio: dio);
 }
 
 class MyApp extends StatelessWidget {
@@ -62,6 +100,34 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<List<SessionCalendarEntrySchema>> getAppointments() async {
+    var api = createMyApi();
+    var appointmentApi = api.getAppointmentAvailabilityAPIsApi();
+
+    DateTime now = new DateTime.now();
+    final DateFormat formatter = DateFormat('dd-MM-yyyy');
+    final String formatted = formatter.format(now);
+    var response = await appointmentApi.calendarByPin("110070", formatted);
+
+    if (response.statusCode == 200) {
+      // If the server did return a 200 OK response,
+      // then parse the JSON.
+      //
+      var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
+          .data.asMap["centers"]
+          .map((value) => api.serializers
+              .deserializeWith(SessionCalendarEntrySchema.serializer, value))
+          .toList(growable: false));
+
+      // List<SessionCalendarEntrySchema> sessionCalendarEntries = [];
+      return des1.toList();
+    } else {
+      // If the server did not return a 200 OK response,
+      // then throw an exception.
+      throw Exception('Failed to get appointments');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -71,46 +137,73 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
+        appBar: AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: Text(widget.title),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+        body: Container(
+          child: FutureBuilder(
+            future: getAppointments(),
+            builder: (BuildContext context, AsyncSnapshot snapshot) {
+              if (snapshot.data == null) {
+                return CircularProgressIndicator();
+              } else {
+                return ListView.builder(
+                  itemCount: snapshot.data.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    return ListTile(
+                      leading: CircleAvatar(
+                          // backgroundImage:
+                          //     NetworkImage(snapshot.data[index].iconUrl),
+                          ),
+                      title: Text(snapshot.data[index].name),
+                      subtitle: Text(snapshot.data[index].districtName +
+                          ", " +
+                          snapshot.data[index].stateName),
+                      trailing: Text(snapshot.data[index].feeType.toString()),
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        )
+        // body: Center(
+        //   // Center is a layout widget. It takes a single child and positions it
+        //   // in the middle of the parent.
+        //   child: Column(
+        //     // Column is also a layout widget. It takes a list of children and
+        //     // arranges them vertically. By default, it sizes itself to fit its
+        //     // children horizontally, and tries to be as tall as its parent.
+        //     //
+        //     // Invoke "debug painting" (press "p" in the console, choose the
+        //     // "Toggle Debug Paint" action from the Flutter Inspector in Android
+        //     // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
+        //     // to see the wireframe for each widget.
+        //     //
+        //     // Column has various properties to control how it sizes itself and
+        //     // how it positions its children. Here we use mainAxisAlignment to
+        //     // center the children vertically; the main axis here is the vertical
+        //     // axis because Columns are vertical (the cross axis would be
+        //     // horizontal).
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     children: <Widget>[
+        //       Text(
+        //         'You have pushed the button this many times:',
+        //       ),
+        //       Text(
+        //         '$_counter',
+        //         style: Theme.of(context).textTheme.headline4,
+        //       ),
+        //     ],
+        //   ),
+        // ),
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed: _incrementCounter,
+        //   tooltip: 'Increment',
+        //   child: Icon(Icons.add),
+        // ), // This trailing comma makes auto-formatting nicer for build methods.
+        );
   }
 }
