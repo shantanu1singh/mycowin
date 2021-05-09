@@ -29,6 +29,7 @@ dependencies:
   intl: 0.17.0
   cron: 0.3.0
   shared_preferences: 2.0.5
+  flutter_local_notifications: ^5.0.0+1
   cowin_api:
     path: ../cowin_api
 

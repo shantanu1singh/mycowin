@@ -10,10 +10,16 @@ import 'package:flutter/services.dart';
 import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'listview.dart';
+import 'notification_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  NotificationService notificationService = NotificationService();
+  await notificationService.init();
+
   final cron = Cron();
-  cron.schedule(Schedule.parse('0 * * * *'), () async {
+  // cron.schedule(Schedule.parse('0 * * * *'), () async {
+  cron.schedule(Schedule.parse('* * * * *'), () async {
     print('Runs every hour');
     final prefs = await SharedPreferences.getInstance();
 
@@ -24,9 +30,19 @@ void main() {
     num age = prefs.getInt('age') ?? -1;
 
     if (stateId != -1 && districtId != -1) {
-      var appointments = await getAppointmentsByDistrictForWeek(
-          cowinApi, stateId, districtId, age);
-      if (appointments != null && appointments.length > 0) {}
+      List<SessionCalendarEntrySchema> appointments =
+          await getAppointmentsByDistrictForWeek(
+              cowinApi, stateId, districtId, age);
+      if (appointments != null && appointments.length > 0) {
+        int totalAvailability = 0;
+        appointments.forEach((apt) {
+          apt.sessions.forEach((sess) {
+            totalAvailability += sess.availableCapacity;
+          });
+        });
+        notificationService.showNotification("Appointments available.",
+            "$totalAvailability appointments available in $districtName, $stateName.");
+      }
     }
   });
 
