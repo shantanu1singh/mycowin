@@ -7,9 +7,29 @@ import 'package:cowin_api/model/inline_response2002_states.dart';
 import 'package:intl/intl.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:flutter/services.dart';
+import 'package:cron/cron.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'listview.dart';
 
 void main() {
+  final cron = Cron();
+  cron.schedule(Schedule.parse('0 * * * *'), () async {
+    print('Runs every hour');
+    final prefs = await SharedPreferences.getInstance();
+
+    String stateName = prefs.getString('sName') ?? null;
+    num stateId = prefs.getInt('sId') ?? -1;
+    String districtName = prefs.getString('dName') ?? null;
+    num districtId = prefs.getInt('dId') ?? -1;
+    num age = prefs.getInt('age') ?? -1;
+
+    if (stateId != -1 && districtId != -1) {
+      var appointments = await getAppointmentsByDistrictForWeek(
+          cowinApi, stateId, districtId, age);
+      if (appointments != null && appointments.length > 0) {}
+    }
+  });
+
   runApp(MyApp());
 }
 
@@ -143,7 +163,16 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _pushSubmit() {
+  Future _pushSubmit() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('sName', stateName);
+    prefs.setInt('sId', stateId);
+    prefs.setString('dName', districtName);
+    prefs.setInt('dId', districtId);
+
+    num age = num.parse(ageController.text);
+    prefs.setInt('age', age);
+
     Navigator.pushNamed(
       context,
       AppointmentListView.routeName,
@@ -152,7 +181,7 @@ class _MyHomePageState extends State<MyHomePage> {
         stateId,
         districtId,
         pinCode,
-        num.parse(ageController.text),
+        age,
       ),
     );
   }

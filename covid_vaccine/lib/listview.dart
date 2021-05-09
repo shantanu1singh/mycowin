@@ -4,6 +4,68 @@ import 'package:cowin_api/model/session_calendar_entry_schema.dart';
 import 'package:intl/intl.dart';
 import 'package:built_collection/built_collection.dart';
 
+Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict(
+    CowinApi cowinApi, num stateId, num districtId, num age) async {
+  var appointmentApi = cowinApi.getAppointmentAvailabilityAPIsApi();
+
+  DateTime now = new DateTime.now();
+  final DateFormat formatter = DateFormat('dd-MM-yyyy');
+  final String formatted = formatter.format(now);
+  // final String formatted = formatter.format(new DateTime(2021, 5, 10));
+  // var response = await appointmentApi.calendarByPin("110070", formatted);
+  var response =
+      await appointmentApi.calendarByDistrict(districtId.toString(), formatted);
+
+  if (response.statusCode == 200) {
+    var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
+        .data.asMap["centers"]
+        .map((value) => cowinApi.serializers
+            .deserializeWith(SessionCalendarEntrySchema.serializer, value))
+        .toList(growable: false));
+
+    var des2 = des1.where((x) {
+      var todaysSession = x.sessions.where((y) => y.date == formatted);
+      return todaysSession != null &&
+          todaysSession.length == 1 &&
+          todaysSession.first.minAgeLimit <= age &&
+          todaysSession.first.availableCapacity > 0;
+    }).toList();
+    return des2;
+  } else {
+    throw Exception('Failed to get appointments');
+  }
+}
+
+Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrictForWeek(
+    CowinApi cowinApi, num stateId, num districtId, num age) async {
+  var appointmentApi = cowinApi.getAppointmentAvailabilityAPIsApi();
+
+  DateTime now = new DateTime.now();
+  final DateFormat formatter = DateFormat('dd-MM-yyyy');
+  final String formatted = formatter.format(now);
+  // final String formatted = formatter.format(new DateTime(2021, 5, 10));
+  // var response = await appointmentApi.calendarByPin("110070", formatted);
+  var response =
+      await appointmentApi.calendarByDistrict(districtId.toString(), formatted);
+
+  if (response.statusCode == 200) {
+    var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
+        .data.asMap["centers"]
+        .map((value) => cowinApi.serializers
+            .deserializeWith(SessionCalendarEntrySchema.serializer, value))
+        .toList(growable: false));
+
+    var des2 = des1.where((x) {
+      var todaysSession = x.sessions
+          .where((y) => y.availableCapacity > 0 && y.minAgeLimit <= age);
+      return todaysSession != null && todaysSession.length > 0;
+    }).toList();
+    return des2;
+  } else {
+    throw Exception('Failed to get appointments');
+  }
+}
+
 class AppointmentListViewArguments {
   final CowinApi cowinApi;
   final num stateId;
@@ -69,21 +131,7 @@ class _AppointmentListViewState extends State<AppointmentListView> {
   // final num districtId;
   // final int pinCode;
 
-  // _AppointmentListViewState(
-  //     this.cowinApi, this.stateId, this.districtId, this.pinCode);
-  // void _incrementCounter() {
-  //   setState(() {
-  //     // This call to setState tells the Flutter framework that something has
-  //     // changed in this State, which causes it to rerun the build method below
-  //     // so that the display can reflect the updated values. If we changed
-  //     // _counter without calling setState(), then the build method would not be
-  //     // called again, and so nothing would appear to happen.
-  //     _counter++;
-  //   });
-  // }
-  //
-
-  Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict(
+  Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict1(
       num stateId, num districtId, num age) async {
     var appointmentApi = cowinApi.getAppointmentAvailabilityAPIsApi();
 
@@ -183,7 +231,7 @@ class _AppointmentListViewState extends State<AppointmentListView> {
           ),
           child: FutureBuilder(
             future: getAppointmentsByDistrict(
-                args.stateId, args.districtId, args.age),
+                args.cowinApi, args.stateId, args.districtId, args.age),
             builder: (BuildContext context, AsyncSnapshot snapshot) {
               if (snapshot.data == null) {
                 return CircularProgressIndicator();

@@ -27,6 +27,8 @@ dependencies:
   built_value: '>=7.1.0 <8.0.0'
   built_collection: '>=4.3.2 <5.0.0'
   intl: 0.17.0
+  cron: 0.3.0
+  shared_preferences: 2.0.5
   cowin_api:
     path: ../cowin_api
 
