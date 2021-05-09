@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:cowin_api/api.dart';
 import 'package:cowin_api/model/session_calendar_entry_schema.dart';
+import 'package:cowin_api/model/inline_response2003_districts.dart';
+import 'package:cowin_api/model/inline_response2002_states.dart';
 import 'package:intl/intl.dart';
 import 'package:built_collection/built_collection.dart';
+import 'package:flutter/services.dart';
+import 'listview.dart';
 
 void main() {
   runApp(MyApp());
@@ -40,7 +44,7 @@ BaseOptions createDioOptions(
 /// Creates an instance of the backend API with default options.
 CowinApi createMyApi() {
   const baseUrl = 'https://cdn-api.co-vin.in/api';
-  final options = createDioOptions(baseUrl, 10000, 10000);
+  final options = createDioOptions(baseUrl, 60000, 60000);
   final dio = createDio(options);
   return CowinApi(dio: dio);
 }
@@ -49,22 +53,23 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    var routes = <String, WidgetBuilder>{
+      AppointmentListView.routeName: (BuildContext context) =>
+          new AppointmentListView(),
+    };
     return MaterialApp(
-      title: 'COVID Vaccination Centers',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: MyHomePage(title: 'COVID Vaccination Centers Page'),
-    );
+        title: 'COVID Vaccination Centers',
+        theme: ThemeData(
+          primaryColor: Colors.white,
+          textTheme: TextTheme(
+              headline6: TextStyle(fontSize: 30, color: Colors.white),
+              subtitle1: TextStyle(fontSize: 17, color: Colors.white),
+              subtitle2: TextStyle(fontSize: 20, color: Colors.white),
+              bodyText1: TextStyle(fontSize: 20, color: Colors.green),
+              bodyText2: TextStyle(fontSize: 15, color: Colors.white)),
+        ),
+        home: MyHomePage(title: 'COVID Vaccination Centers'),
+        routes: routes);
   }
 }
 
@@ -87,45 +92,69 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  final ageController = TextEditingController();
+  var _states = <InlineResponse2002States>[];
+  var _districts = <InlineResponse2003Districts>[];
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  num stateId = -1;
+  String stateName = "Choose a state..";
 
-  Future<List<SessionCalendarEntrySchema>> getAppointments() async {
-    var api = createMyApi();
-    var appointmentApi = api.getAppointmentAvailabilityAPIsApi();
+  num districtId;
+  String districtName = "Choose a district..";
 
-    DateTime now = new DateTime.now();
-    final DateFormat formatter = DateFormat('dd-MM-yyyy');
-    final String formatted = formatter.format(now);
-    var response = await appointmentApi.calendarByPin("110070", formatted);
+  int pinCode;
+
+  Future<List<InlineResponse2002States>> getStates() async {
+    // final CowinApi cowinApi1 = createMyApi();
+    // var metadataApi = cowinApi1.getMetadataAPIsApi();
+    // var appointmentApi = cowinApi.getAppointmentAvailabilityAPIsApi();
+
+    // DateTime now = new DateTime.now();
+    // final DateFormat formatter = DateFormat('dd-MM-yyyy');
+    // final String formatted = formatter.format(now);
+    // var response1 = await appointmentApi.calendarByPin("110070", formatted);
+
+    var metadataApi = cowinApi.getMetadataAPIsApi();
+
+    var response = await metadataApi.states();
 
     if (response.statusCode == 200) {
-      // If the server did return a 200 OK response,
-      // then parse the JSON.
-      //
-      var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
-          .data.asMap["centers"]
-          .map((value) => api.serializers
-              .deserializeWith(SessionCalendarEntrySchema.serializer, value))
-          .toList(growable: false));
+      _states = response.data.states.toList();
+      return _states;
+    } else {
+      throw Exception('Failed to get states');
+    }
+  }
 
-      // List<SessionCalendarEntrySchema> sessionCalendarEntries = [];
-      return des1.toList();
+  Future<List<InlineResponse2003Districts>> getDistricts(int stateId) async {
+    if (stateId == -1) {
+      return null;
+    }
+
+    var metadataApi = cowinApi.getMetadataAPIsApi();
+    var response = await metadataApi.districts(stateId.toString());
+    if (response.statusCode == 200) {
+      _districts = response.data.districts.toList();
+      return _districts;
     } else {
       // If the server did not return a 200 OK response,
       // then throw an exception.
-      throw Exception('Failed to get appointments');
+      throw Exception('Failed to get districts');
     }
+  }
+
+  void _pushSubmit() {
+    Navigator.pushNamed(
+      context,
+      AppointmentListView.routeName,
+      arguments: AppointmentListViewArguments(
+        cowinApi,
+        stateId,
+        districtId,
+        pinCode,
+        num.parse(ageController.text),
+      ),
+    );
   }
 
   @override
@@ -140,70 +169,133 @@ class _MyHomePageState extends State<MyHomePage> {
         appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
-          title: Text(widget.title),
+          title:
+              Text(widget.title, style: Theme.of(context).textTheme.subtitle2),
+          backgroundColor: Colors.blue.shade900,
+          centerTitle: true,
         ),
         body: Container(
-          child: FutureBuilder(
-            future: getAppointments(),
-            builder: (BuildContext context, AsyncSnapshot snapshot) {
-              if (snapshot.data == null) {
-                return CircularProgressIndicator();
-              } else {
-                return ListView.builder(
-                  itemCount: snapshot.data.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    return ListTile(
-                      leading: CircleAvatar(
-                          // backgroundImage:
-                          //     NetworkImage(snapshot.data[index].iconUrl),
-                          ),
-                      title: Text(snapshot.data[index].name),
-                      subtitle: Text(snapshot.data[index].districtName +
-                          ", " +
-                          snapshot.data[index].stateName),
-                      trailing: Text(snapshot.data[index].feeType.toString()),
+            padding: EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                stops: [0.0, 0.7],
+                colors: [
+                  // Color(0xFFF12711),
+                  // Color(0xFFf5af19),
+                  Colors.blue.shade50,
+                  Colors.blue.shade900,
+                ],
+              ),
+            ),
+            child: Column(children: <Widget>[
+              FutureBuilder(
+                future: getStates(),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (snapshot.data == null) {
+                    // return CircularProgressIndicator();
+                    return DropdownButton<String>(
+                      isExpanded: true,
+                      items: [],
+                      value: stateName,
                     );
-                  },
-                );
-              }
-            },
-          ),
-        )
-        // body: Center(
-        //   // Center is a layout widget. It takes a single child and positions it
-        //   // in the middle of the parent.
-        //   child: Column(
-        //     // Column is also a layout widget. It takes a list of children and
-        //     // arranges them vertically. By default, it sizes itself to fit its
-        //     // children horizontally, and tries to be as tall as its parent.
-        //     //
-        //     // Invoke "debug painting" (press "p" in the console, choose the
-        //     // "Toggle Debug Paint" action from the Flutter Inspector in Android
-        //     // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-        //     // to see the wireframe for each widget.
-        //     //
-        //     // Column has various properties to control how it sizes itself and
-        //     // how it positions its children. Here we use mainAxisAlignment to
-        //     // center the children vertically; the main axis here is the vertical
-        //     // axis because Columns are vertical (the cross axis would be
-        //     // horizontal).
-        //     mainAxisAlignment: MainAxisAlignment.center,
-        //     children: <Widget>[
-        //       Text(
-        //         'You have pushed the button this many times:',
-        //       ),
-        //       Text(
-        //         '$_counter',
-        //         style: Theme.of(context).textTheme.headline4,
-        //       ),
-        //     ],
-        //   ),
-        // ),
-        // floatingActionButton: FloatingActionButton(
-        //   onPressed: _incrementCounter,
-        //   tooltip: 'Increment',
-        //   child: Icon(Icons.add),
-        // ), // This trailing comma makes auto-formatting nicer for build methods.
-        );
+                  } else {
+                    List<DropdownMenuItem<int>> list = [];
+                    list.clear();
+                    Map dropDownItemsMap = new Map();
+
+                    snapshot.data.forEach((state) {
+                      //listItemNames.add(branchItem.itemName);
+                      int index = snapshot.data.indexOf(state);
+                      dropDownItemsMap[index] = state.stateName;
+
+                      list.add(new DropdownMenuItem<int>(
+                          value: index,
+                          child: Text(state.stateName,
+                              style: Theme.of(context).textTheme.subtitle2)));
+                    });
+
+                    return DropdownButton<int>(
+                        isExpanded: true,
+                        items: list,
+                        onChanged: (int selected) {
+                          var _selectedItem = list[selected].value;
+                          setState(() {
+                            stateName = dropDownItemsMap[_selectedItem];
+                            stateId = _states
+                                .singleWhere(
+                                    (element) => element.stateName == stateName)
+                                .stateId;
+                          });
+                        },
+                        hint: new Text(
+                          stateName,
+                          style: Theme.of(context).textTheme.subtitle2,
+                        ),
+                        // child: FutureBuilder(
+                        dropdownColor: Colors.lightBlue.shade400);
+                  }
+                },
+              ),
+              FutureBuilder(
+                future: getDistricts(stateId),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (snapshot.data == null) {
+                    return DropdownButton<String>(
+                      isExpanded: true,
+                      items: [],
+                      value: districtName,
+                    );
+                  } else {
+                    List<DropdownMenuItem<int>> list = [];
+                    list.clear();
+                    Map dropDownItemsMap = new Map();
+
+                    snapshot.data.forEach((district) {
+                      int index = snapshot.data.indexOf(district);
+                      dropDownItemsMap[index] = district.districtName;
+
+                      list.add(new DropdownMenuItem<int>(
+                          value: index,
+                          child: Text(district.districtName,
+                              style: Theme.of(context).textTheme.subtitle2)));
+                    });
+
+                    return DropdownButton<int>(
+                        isExpanded: true,
+                        items: list,
+                        onChanged: (int selected) {
+                          var _selectedItem = list[selected].value;
+                          setState(() {
+                            districtName = dropDownItemsMap[_selectedItem];
+                            districtId = _districts
+                                .singleWhere((element) =>
+                                    element.districtName == districtName)
+                                .districtId;
+                          });
+                        },
+                        hint: new Text(
+                          districtName,
+                          style: Theme.of(context).textTheme.subtitle2,
+                        ),
+                        dropdownColor: Colors.lightBlue.shade400);
+                  }
+                },
+              ),
+              new TextField(
+                decoration: new InputDecoration(hintText: "Enter your age"),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                keyboardType: TextInputType.number,
+                controller: ageController,
+              ),
+              new ElevatedButton(
+                child: Text('Submit',
+                    style: Theme.of(context).textTheme.subtitle2),
+                onPressed: () => _pushSubmit(),
+              ),
+            ])));
   }
 }
+
+final CowinApi cowinApi = createMyApi();
