@@ -259,12 +259,13 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
                     ),
                   ),
                   body: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 10),
                     color: Colors.grey.shade700,
                     child: TabBarView(
                       children: tabs.map(
                         (Tab tab) {
-                          var aptsOnDate = dateToAppointmentsMap[tab.text];
+                          String tabText = (tab.child as Text).data;
+                          var aptsOnDate = dateToAppointmentsMap[tabText];
                           if (aptsOnDate == null || aptsOnDate.length == 0) {
                             return Align(
                               alignment: Alignment.center,
@@ -288,7 +289,7 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
                                     .singleWhere((x) =>
                                         formatter.format(
                                             incomingFormat.parse(x.date)) ==
-                                        tab.text)
+                                        tabText)
                                     .availableCapacity;
                                 return ListTile(
                                   title: Text(aptsOnDate[index].name,

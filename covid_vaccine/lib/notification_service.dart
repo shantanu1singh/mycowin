@@ -15,8 +15,8 @@ class NotificationService {
           "covidVaccineId", //Required for Android 8.0 or after
           "covidVaccineChannel", //Required for Android 8.0 or after
           "covidVaccineDescription", //Required for Android 8.0 or after
-          importance: Importance.max,
-          priority: Priority.max,
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
           // fullScreenIntent: true,
           visibility: NotificationVisibility.public);
 
