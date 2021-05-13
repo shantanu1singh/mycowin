@@ -4,15 +4,12 @@ import 'package:cowin_api/api.dart';
 import 'package:cowin_api/model/session_calendar_entry_schema.dart';
 import 'package:cowin_api/model/inline_response2003_districts.dart';
 import 'package:cowin_api/model/inline_response2002_states.dart';
-import 'package:intl/intl.dart';
-import 'package:built_collection/built_collection.dart';
 import 'package:flutter/services.dart';
 import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // import 'listview.dart';
 import 'tabview.dart';
 import 'notification_service.dart';
-import 'dart:collection';
 
 NotificationService notificationService;
 Cron cron;
@@ -104,30 +101,18 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final ageController = TextEditingController();
+
   var _states = <InlineResponse2002States>[];
   var _districts = <InlineResponse2003Districts>[];
 
   static const String stateNamePlaceholderText = "Choose a state..";
   static const String districtNamePlaceholderText = "Choose a district..";
-  // num stateId = -1;
-  // String stateName = stateNamePlaceholderText;
-
-  // num districtId = -1;
-  // String districtName = districtNamePlaceholderText;
-
-  // int pinCode;
-  // num age;
 
   final Map<String, List<num>> notificationFrequencyUnitToValuesMap = {
     "hours": new List<int>.generate(24, (i) => i + 1),
     "minutes": new List<int>.generate(60, (i) => i + 1),
     "days": new List<int>.generate(7, (i) => i + 1),
   };
-
-  // String chosenNotifFrequencyUnit = "hours";
-  // int chosenNotifFrequencyValue = 1;
-
-  // bool notificationsEnabled = false;
 
   bool stateStoreInitialized = false;
 
@@ -146,12 +131,16 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<List<InlineResponse2002States>> getStates() async {
+    if (this._states != null) {
+      return this._states;
+    }
+
     var metadataApi = cowinApi.getMetadataAPIsApi();
     var response = await metadataApi.states();
 
     if (response.statusCode == 200) {
-      _states = response.data.states.toList();
-      return _states;
+      this._states = response.data.states.toList();
+      return this._states;
     } else {
       throw Exception('Failed to get states');
     }
@@ -162,11 +151,15 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
 
+    if (this._districts != null) {
+      return this._districts;
+    }
+
     var metadataApi = cowinApi.getMetadataAPIsApi();
     var response = await metadataApi.districts(stateId.toString());
     if (response.statusCode == 200) {
-      _districts = response.data.districts.toList();
-      return _districts;
+      this._districts = response.data.districts.toList();
+      return this._districts;
     } else {
       // If the server did not return a 200 OK response,
       // then throw an exception.
@@ -176,7 +169,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future _saveState() async {
     if (this.store.age == -1) {
-      this.store.age = num.parse(ageController.text);
+      this.store.age = num.parse(this.ageController.text);
     }
     await this.store.saveStore();
   }
@@ -313,13 +306,14 @@ class _MyHomePageState extends State<MyHomePage> {
                                     setState(() {
                                       this.store.stateName =
                                           dropDownItemsMap[_selectedItem];
-                                      this.store.stateId = _states
+                                      this.store.stateId = this
+                                          ._states
                                           .singleWhere((element) =>
                                               element.stateName ==
                                               this.store.stateName)
                                           .stateId;
-                                      this.store.districtName =
-                                          districtNamePlaceholderText;
+                                      this.store.districtName = _MyHomePageState
+                                          .districtNamePlaceholderText;
                                       this.store.districtId = -1;
                                     });
                                   },
@@ -373,7 +367,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                     setState(() {
                                       this.store.districtName =
                                           dropDownItemsMap[_selectedItem];
-                                      this.store.districtId = _districts
+                                      this.store.districtId = this
+                                          ._districts
                                           .singleWhere((element) =>
                                               element.districtName ==
                                               this.store.districtName)
@@ -400,7 +395,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             FilteringTextInputFormatter.digitsOnly
                           ],
                           keyboardType: TextInputType.number,
-                          controller: ageController,
+                          controller: this.ageController,
                         ),
                         new Row(
                           // mainAxisSize: MainAxisSize.min,
@@ -564,13 +559,6 @@ Future updateNotifications(
 
   cron = Cron();
   cron.schedule(Schedule.parse(schedule), () async {
-    print('Runs every hour');
-    // final prefs = await SharedPreferences.getInstance();
-    // String stateName = prefs.getString('sName') ?? null;
-    // num stateId = prefs.getInt('sId') ?? -1;
-    // String districtName = prefs.getString('dName') ?? null;
-    // num districtId = prefs.getInt('dId') ?? -1;
-    // num age = prefs.getInt('age') ?? -1;
     if (stateStore.stateId != -1 && stateStore.age != -1) {
       try {
         List<SessionCalendarEntrySchema> appointments =
