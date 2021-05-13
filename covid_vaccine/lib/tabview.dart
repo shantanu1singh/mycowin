@@ -106,12 +106,16 @@ class AppointmentListTabbedView extends StatefulWidget {
       _AppointmentListTabbedViewState();
 }
 
-class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView> {
+class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
+    with AutomaticKeepAliveClientMixin<AppointmentListTabbedView> {
   final _appointments = <SessionCalendarEntrySchema>[];
   CowinApi cowinApi;
   // final num stateId;
   // final num districtId;
   // final int pinCode;
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict1(
       num stateId, num districtId, num age) async {

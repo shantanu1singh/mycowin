@@ -12,41 +12,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 // import 'listview.dart';
 import 'tabview.dart';
 import 'notification_service.dart';
+import 'dart:collection';
+
+NotificationService notificationService;
+Cron cron;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  NotificationService notificationService = NotificationService();
-  await notificationService.init();
-
-  final cron = Cron();
-  // cron.schedule(Schedule.parse('0 * * * *'), () async {
-  cron.schedule(Schedule.parse('* * * * *'), () async {
-    print('Runs every hour');
-    final prefs = await SharedPreferences.getInstance();
-
-    String stateName = prefs.getString('sName') ?? null;
-    num stateId = prefs.getInt('sId') ?? -1;
-    String districtName = prefs.getString('dName') ?? null;
-    num districtId = prefs.getInt('dId') ?? -1;
-    num age = prefs.getInt('age') ?? -1;
-
-    if (stateId != -1 && districtId != -1) {
-      List<SessionCalendarEntrySchema> appointments =
-          await getAppointmentsByDistrictForWeek(
-              cowinApi, stateId, districtId, age);
-      if (appointments != null && appointments.length > 0) {
-        int totalAvailability = 0;
-        appointments.forEach((apt) {
-          apt.sessions.forEach((sess) {
-            totalAvailability += sess.availableCapacity;
-          });
-        });
-        notificationService.showNotification("Appointments available.",
-            "$totalAvailability appointments available in $districtName, $stateName.");
-      }
-    }
-  });
-
   runApp(MyApp());
 }
 
@@ -144,6 +116,18 @@ class _MyHomePageState extends State<MyHomePage> {
   String districtName = districtNamePlaceholderText;
 
   int pinCode;
+  num age;
+
+  final Map<String, List<num>> notificationFrequencyUnitToValuesMap = {
+    "hours": new List<int>.generate(24, (i) => i + 1),
+    "minutes": new List<int>.generate(60, (i) => i + 1),
+    "days": new List<int>.generate(7, (i) => i + 1),
+  };
+
+  String chosenNotifFrequencyUnit = "hours";
+  int chosenNotifFrequencyValue = 1;
+
+  bool notificationsEnabled = false;
 
   Future<List<InlineResponse2002States>> getStates() async {
     // final CowinApi cowinApi1 = createMyApi();
@@ -184,15 +168,25 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Future _pushSubmit() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString('sName', stateName);
-    prefs.setInt('sId', stateId);
-    prefs.setString('dName', districtName);
-    prefs.setInt('dId', districtId);
+  Future _saveState() async {
+    await _buildStateStore().saveStore();
+  }
 
-    num age = num.parse(ageController.text);
-    prefs.setInt('age', age);
+  StateStore _buildStateStore() {
+    return new StateStore(
+        stateName,
+        stateId,
+        districtName,
+        districtId,
+        num.parse(ageController.text),
+        0,
+        notificationsEnabled,
+        chosenNotifFrequencyUnit,
+        chosenNotifFrequencyValue);
+  }
+
+  Future _pushSubmit() async {
+    await _saveState();
 
     // Navigator.pushNamed(
     //   context,
@@ -219,6 +213,28 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Align getNotificationStatusTextWidget() {
+    if (notificationsEnabled) {
+      return Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                "Notifications are enabled",
+                style: TextStyle(fontSize: 15, color: Colors.greenAccent),
+              )));
+    } else {
+      return Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                "Notifications are disabled",
+                style: TextStyle(fontSize: 15, color: Colors.amber),
+              )));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -237,7 +253,7 @@ class _MyHomePageState extends State<MyHomePage> {
           centerTitle: true,
         ),
         body: Container(
-            padding: EdgeInsets.symmetric(horizontal: 50, vertical: 30),
+            padding: EdgeInsets.symmetric(horizontal: 50, vertical: 10),
             color: Colors.grey.shade700,
             // decoration: BoxDecoration(
             //   gradient: LinearGradient(
@@ -252,137 +268,346 @@ class _MyHomePageState extends State<MyHomePage> {
             //     ],
             //   ),
             // ),
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: <
+                    Widget>[
+              FutureBuilder(
+                future: getStates(),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (snapshot.data == null) {
+                    // return CircularProgressIndicator();
+                    return DropdownButton<String>(
+                      isExpanded: true,
+                      items: [],
+                      // value: stateName,
+                      hint: new Text(
+                        stateName,
+                        style: Theme.of(context).textTheme.subtitle2,
+                      ),
+                    );
+                  } else {
+                    List<DropdownMenuItem<int>> list = [];
+                    list.clear();
+                    Map dropDownItemsMap = new Map();
+
+                    snapshot.data.forEach((state) {
+                      //listItemNames.add(branchItem.itemName);
+                      int index = snapshot.data.indexOf(state);
+                      dropDownItemsMap[index] = state.stateName;
+
+                      list.add(new DropdownMenuItem<int>(
+                          value: index,
+                          child: Text(state.stateName,
+                              style: Theme.of(context).textTheme.subtitle2)));
+                    });
+
+                    return DropdownButton<int>(
+                        isExpanded: true,
+                        items: list,
+                        onChanged: (int selected) {
+                          var _selectedItem = list[selected].value;
+                          setState(() {
+                            stateName = dropDownItemsMap[_selectedItem];
+                            stateId = _states
+                                .singleWhere(
+                                    (element) => element.stateName == stateName)
+                                .stateId;
+                            districtName = districtNamePlaceholderText;
+                            districtId = -1;
+                          });
+                        },
+                        hint: new Text(
+                          stateName,
+                          style: Theme.of(context).textTheme.subtitle2,
+                        ),
+                        // child: FutureBuilder(
+                        dropdownColor: Colors.grey.shade800,
+                        iconEnabledColor: Colors.white);
+                  }
+                },
+              ),
+              FutureBuilder(
+                future: getDistricts(stateId),
+                builder: (BuildContext context, AsyncSnapshot snapshot) {
+                  if (snapshot.data == null) {
+                    return DropdownButton<String>(
+                      isExpanded: true,
+                      items: [],
+                      // value: districtName,
+                      hint: new Text(
+                        districtName,
+                        style: Theme.of(context).textTheme.subtitle2,
+                      ),
+                    );
+                  } else {
+                    List<DropdownMenuItem<int>> list = [];
+                    list.clear();
+                    Map dropDownItemsMap = new Map();
+
+                    snapshot.data.forEach((district) {
+                      int index = snapshot.data.indexOf(district);
+                      dropDownItemsMap[index] = district.districtName;
+
+                      list.add(new DropdownMenuItem<int>(
+                          value: index,
+                          child: Text(district.districtName,
+                              style: Theme.of(context).textTheme.subtitle2)));
+                    });
+
+                    return DropdownButton<int>(
+                        isExpanded: true,
+                        items: list,
+                        onChanged: (int selected) {
+                          var _selectedItem = list[selected].value;
+                          setState(() {
+                            districtName = dropDownItemsMap[_selectedItem];
+                            districtId = _districts
+                                .singleWhere((element) =>
+                                    element.districtName == districtName)
+                                .districtId;
+                          });
+                        },
+                        hint: new Text(
+                          districtName,
+                          style: Theme.of(context).textTheme.subtitle2,
+                        ),
+                        dropdownColor: Colors.grey.shade800,
+                        iconEnabledColor: Colors.white);
+                  }
+                },
+              ),
+              new TextField(
+                decoration: new InputDecoration(
+                    hintText: "Enter your age",
+                    hintStyle: Theme.of(context).textTheme.bodyText2),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                keyboardType: TextInputType.number,
+                controller: ageController,
+              ),
+              new Row(
+                // mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  FutureBuilder(
-                    future: getStates(),
-                    builder: (BuildContext context, AsyncSnapshot snapshot) {
-                      if (snapshot.data == null) {
-                        // return CircularProgressIndicator();
-                        return DropdownButton<String>(
-                          isExpanded: true,
-                          items: [],
-                          // value: stateName,
-                          hint: new Text(
-                            stateName,
-                            style: Theme.of(context).textTheme.subtitle2,
-                          ),
-                        );
-                      } else {
-                        List<DropdownMenuItem<int>> list = [];
-                        list.clear();
-                        Map dropDownItemsMap = new Map();
-
-                        snapshot.data.forEach((state) {
-                          //listItemNames.add(branchItem.itemName);
-                          int index = snapshot.data.indexOf(state);
-                          dropDownItemsMap[index] = state.stateName;
-
-                          list.add(new DropdownMenuItem<int>(
-                              value: index,
-                              child: Text(state.stateName,
-                                  style:
-                                      Theme.of(context).textTheme.subtitle2)));
-                        });
-
-                        return DropdownButton<int>(
+                  Expanded(
+                    child: new Padding(
+                      padding: const EdgeInsets.all(0.0),
+                      child: new Text(
+                        "Notifications",
+                        style: Theme.of(context).textTheme.bodyText2,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                      child: new Padding(
+                    padding: const EdgeInsets.all(0.0),
+                    child: Transform.scale(
+                        scale: 0.7,
+                        child: Switch(
+                          value: notificationsEnabled,
+                          onChanged: (value) {
+                            setState(() {
+                              notificationsEnabled = value;
+                              updateNotifications(_buildStateStore());
+                            });
+                          },
+                          activeTrackColor: Colors.white,
+                          activeColor: Colors.white,
+                        )),
+                  )),
+                ],
+              ),
+              new Row(
+                  // mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    new Expanded(
+                      child: new Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: DropdownButton<int>(
                             isExpanded: true,
-                            items: list,
+                            items: notificationFrequencyUnitToValuesMap[
+                                    chosenNotifFrequencyUnit]
+                                .map<DropdownMenuItem<int>>((num value) {
+                              String freqValueAsString = value.toString();
+                              return DropdownMenuItem<int>(
+                                value: value,
+                                child: Text(freqValueAsString,
+                                    style:
+                                        Theme.of(context).textTheme.bodyText2),
+                              );
+                            }).toList(),
                             onChanged: (int selected) {
-                              var _selectedItem = list[selected].value;
                               setState(() {
-                                stateName = dropDownItemsMap[_selectedItem];
-                                stateId = _states
-                                    .singleWhere((element) =>
-                                        element.stateName == stateName)
-                                    .stateId;
-                                districtName = districtNamePlaceholderText;
-                                districtId = -1;
+                                chosenNotifFrequencyValue = selected;
+                                updateNotifications(_buildStateStore());
                               });
                             },
                             hint: new Text(
-                              stateName,
-                              style: Theme.of(context).textTheme.subtitle2,
-                            ),
-                            // child: FutureBuilder(
-                            dropdownColor: Colors.grey.shade800,
-                            iconEnabledColor: Colors.white);
-                      }
-                    },
-                  ),
-                  FutureBuilder(
-                    future: getDistricts(stateId),
-                    builder: (BuildContext context, AsyncSnapshot snapshot) {
-                      if (snapshot.data == null) {
-                        return DropdownButton<String>(
-                          isExpanded: true,
-                          items: [],
-                          // value: districtName,
-                          hint: new Text(
-                            districtName,
-                            style: Theme.of(context).textTheme.subtitle2,
-                          ),
-                        );
-                      } else {
-                        List<DropdownMenuItem<int>> list = [];
-                        list.clear();
-                        Map dropDownItemsMap = new Map();
-
-                        snapshot.data.forEach((district) {
-                          int index = snapshot.data.indexOf(district);
-                          dropDownItemsMap[index] = district.districtName;
-
-                          list.add(new DropdownMenuItem<int>(
-                              value: index,
-                              child: Text(district.districtName,
-                                  style:
-                                      Theme.of(context).textTheme.subtitle2)));
-                        });
-
-                        return DropdownButton<int>(
-                            isExpanded: true,
-                            items: list,
-                            onChanged: (int selected) {
-                              var _selectedItem = list[selected].value;
-                              setState(() {
-                                districtName = dropDownItemsMap[_selectedItem];
-                                districtId = _districts
-                                    .singleWhere((element) =>
-                                        element.districtName == districtName)
-                                    .districtId;
-                              });
-                            },
-                            hint: new Text(
-                              districtName,
-                              style: Theme.of(context).textTheme.subtitle2,
+                              chosenNotifFrequencyValue.toString(),
+                              style: Theme.of(context).textTheme.bodyText2,
                             ),
                             dropdownColor: Colors.grey.shade800,
-                            iconEnabledColor: Colors.white);
-                      }
-                    },
-                  ),
-                  new TextField(
-                    decoration: new InputDecoration(
-                        hintText: "Enter your age",
-                        hintStyle: Theme.of(context).textTheme.bodyText2),
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    keyboardType: TextInputType.number,
-                    controller: ageController,
-                  ),
-                  new ElevatedButton(
-                    child: Text(
-                      'Submit',
-                      style: Theme.of(context).textTheme.subtitle2,
+                            iconEnabledColor: Colors.white),
+                      ),
                     ),
-                    onPressed: () => _pushSubmit(),
-                    style: ElevatedButton.styleFrom(
-                      primary: Colors.grey.shade900, // background
-                      // onPrimary: Colors.white, // foreground
+                    new Flexible(
+                      child: new Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: new DropdownButton<String>(
+                              isExpanded: true,
+                              items: notificationFrequencyUnitToValuesMap.keys
+                                  .map<DropdownMenuItem<String>>(
+                                      (String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyText2),
+                                );
+                              }).toList(),
+                              onChanged: (String selected) {
+                                setState(() {
+                                  chosenNotifFrequencyUnit = selected;
+                                  updateNotifications(_buildStateStore());
+                                });
+                              },
+                              hint: new Text(
+                                chosenNotifFrequencyUnit,
+                                style: Theme.of(context).textTheme.bodyText2,
+                              ),
+                              dropdownColor: Colors.grey.shade800,
+                              iconEnabledColor: Colors.white)),
                     ),
-                  ),
-                ])));
+                  ]),
+              new ElevatedButton(
+                child: Text(
+                  'Find',
+                  style: Theme.of(context).textTheme.subtitle2,
+                ),
+                onPressed: () => _pushSubmit(),
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.grey.shade900, // background
+                ),
+              ),
+              getNotificationStatusTextWidget()
+            ])));
   }
 }
 
 final CowinApi cowinApi = createMyApi();
+
+Future updateNotifications(
+  StateStore stateStore,
+) async {
+  notificationService = NotificationService();
+  await notificationService.init();
+
+  // final cron = Cron();
+  // cron.schedule(Schedule.parse('0 * * * *'), () async {
+
+  if (!stateStore.notificationsEnabled) {
+    cron.close();
+    return;
+  }
+
+  String schedule;
+  switch (stateStore.notificationsFreqUnit) {
+    case "minutes":
+      schedule = "*/${stateStore.notificationsFreqValue} * * * *";
+      break;
+    case "hours":
+      schedule = "* */${stateStore.notificationsFreqValue} * * *";
+      break;
+    case "days":
+      schedule = "* * */${stateStore.notificationsFreqValue} * *";
+      break;
+  }
+
+  if (cron != null) {
+    cron.close();
+  }
+
+  cron = Cron();
+  cron.schedule(Schedule.parse(schedule), () async {
+    print('Runs every hour');
+    // final prefs = await SharedPreferences.getInstance();
+    // String stateName = prefs.getString('sName') ?? null;
+    // num stateId = prefs.getInt('sId') ?? -1;
+    // String districtName = prefs.getString('dName') ?? null;
+    // num districtId = prefs.getInt('dId') ?? -1;
+    // num age = prefs.getInt('age') ?? -1;
+    if (stateStore.stateId != -1 && stateStore.age != -1) {
+      try {
+        List<SessionCalendarEntrySchema> appointments =
+            await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
+                stateStore.districtId, stateStore.age);
+        if (appointments != null && appointments.length > 0) {
+          int totalAvailability = 0;
+          appointments.forEach((apt) {
+            apt.sessions.forEach((sess) {
+              totalAvailability += sess.availableCapacity;
+            });
+          });
+          notificationService.showNotification("Appointments available.",
+              "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
+        }
+      } catch (Exception) {}
+    }
+  });
+}
+
+class StateStore {
+  final String stateName;
+  final num stateId;
+  final String districtName;
+  final num districtId;
+  final int pinCode;
+  final num age;
+  final bool notificationsEnabled;
+  final String notificationsFreqUnit;
+  final int notificationsFreqValue;
+
+  StateStore(
+      this.stateName,
+      this.stateId,
+      this.districtName,
+      this.districtId,
+      this.pinCode,
+      this.age,
+      this.notificationsEnabled,
+      this.notificationsFreqUnit,
+      this.notificationsFreqValue);
+
+  static Future<StateStore> fromStore() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    String stateName = prefs.getString('sName') ?? null;
+    if (stateName == null) {
+      return null;
+    }
+
+    num stateId = prefs.getInt('sId') ?? -1;
+    String districtName = prefs.getString('dName') ?? null;
+    num districtId = prefs.getInt('dId') ?? -1;
+    num age = prefs.getInt('age') ?? -1;
+
+    bool notifEnabled = prefs.getBool('nE') ?? false;
+    String notifUnit = prefs.getString('nFU') ?? null;
+    int notifValue = prefs.getInt('nFV') ?? -1;
+
+    return new StateStore(stateName, stateId, districtName, districtId, 1, age,
+        notifEnabled, notifUnit, notifValue);
+  }
+
+  Future saveStore() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('sName', stateName);
+    prefs.setInt('sId', stateId);
+    prefs.setString('dName', districtName);
+    prefs.setInt('dId', districtId);
+    prefs.setInt('age', age);
+    prefs.setInt('pin', pinCode);
+    prefs.setBool("nE", notificationsEnabled);
+    prefs.setString("nFU", notificationsFreqUnit);
+    prefs.setInt("nFV", notificationsFreqValue);
+  }
+}
