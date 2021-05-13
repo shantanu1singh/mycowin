@@ -9,7 +9,8 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/services.dart';
 import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'listview.dart';
+// import 'listview.dart';
+import 'tabview.dart';
 import 'notification_service.dart';
 
 Future<void> main() async {
@@ -90,11 +91,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var routes = <String, WidgetBuilder>{
-      AppointmentListView.routeName: (BuildContext context) =>
-          new AppointmentListView(),
+      // AppointmentListView.routeName: (BuildContext context) =>
+      //     new AppointmentListView(),
+      AppointmentListTabbedView.routeName: (BuildContext context) =>
+          new AppointmentListTabbedView(),
     };
     return MaterialApp(
-        title: 'COVID Vaccination Centers',
+        title: 'MyCowin',
         theme: ThemeData(
           primaryColor: Colors.white,
           textTheme: TextTheme(
@@ -104,7 +107,7 @@ class MyApp extends StatelessWidget {
               bodyText1: TextStyle(fontSize: 20, color: Colors.green),
               bodyText2: TextStyle(fontSize: 15, color: Colors.white)),
         ),
-        home: MyHomePage(title: 'COVID Vaccination Centers'),
+        home: MyHomePage(title: 'MyCowin'),
         routes: routes);
   }
 }
@@ -132,11 +135,13 @@ class _MyHomePageState extends State<MyHomePage> {
   var _states = <InlineResponse2002States>[];
   var _districts = <InlineResponse2003Districts>[];
 
+  static const String stateNamePlaceholderText = "Choose a state..";
+  static const String districtNamePlaceholderText = "Choose a district..";
   num stateId = -1;
-  String stateName = "Choose a state..";
+  String stateName = stateNamePlaceholderText;
 
-  num districtId;
-  String districtName = "Choose a district..";
+  num districtId = -1;
+  String districtName = districtNamePlaceholderText;
 
   int pinCode;
 
@@ -189,10 +194,22 @@ class _MyHomePageState extends State<MyHomePage> {
     num age = num.parse(ageController.text);
     prefs.setInt('age', age);
 
+    // Navigator.pushNamed(
+    //   context,
+    //   AppointmentListView.routeName,
+    //   arguments: AppointmentListViewArguments(
+    //     cowinApi,
+    //     stateId,
+    //     districtId,
+    //     pinCode,
+    //     age,
+    //   ),
+    // );
+
     Navigator.pushNamed(
       context,
-      AppointmentListView.routeName,
-      arguments: AppointmentListViewArguments(
+      AppointmentListTabbedView.routeName,
+      arguments: AppointmentListTabbedViewArguments(
         cowinApi,
         stateId,
         districtId,
@@ -216,130 +233,155 @@ class _MyHomePageState extends State<MyHomePage> {
           // the App.build method, and use it to set our appbar title.
           title:
               Text(widget.title, style: Theme.of(context).textTheme.subtitle2),
-          backgroundColor: Colors.blue.shade900,
+          backgroundColor: Colors.grey.shade800,
           centerTitle: true,
         ),
         body: Container(
             padding: EdgeInsets.symmetric(horizontal: 50, vertical: 30),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                stops: [0.0, 0.7],
-                colors: [
-                  // Color(0xFFF12711),
-                  // Color(0xFFf5af19),
-                  Colors.blue.shade50,
-                  Colors.blue.shade900,
-                ],
-              ),
-            ),
-            child: Column(children: <Widget>[
-              FutureBuilder(
-                future: getStates(),
-                builder: (BuildContext context, AsyncSnapshot snapshot) {
-                  if (snapshot.data == null) {
-                    // return CircularProgressIndicator();
-                    return DropdownButton<String>(
-                      isExpanded: true,
-                      items: [],
-                      value: stateName,
-                    );
-                  } else {
-                    List<DropdownMenuItem<int>> list = [];
-                    list.clear();
-                    Map dropDownItemsMap = new Map();
+            color: Colors.grey.shade700,
+            // decoration: BoxDecoration(
+            //   gradient: LinearGradient(
+            //     begin: Alignment.bottomCenter,
+            //     end: Alignment.topCenter,
+            //     stops: [0.0, 0.7],
+            //     colors: [
+            //       // Color(0xFFF12711),
+            //       // Color(0xFFf5af19),
+            //       Colors.blue.shade50,
+            //       Colors.blue.shade900,
+            //     ],
+            //   ),
+            // ),
+            child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  FutureBuilder(
+                    future: getStates(),
+                    builder: (BuildContext context, AsyncSnapshot snapshot) {
+                      if (snapshot.data == null) {
+                        // return CircularProgressIndicator();
+                        return DropdownButton<String>(
+                          isExpanded: true,
+                          items: [],
+                          // value: stateName,
+                          hint: new Text(
+                            stateName,
+                            style: Theme.of(context).textTheme.subtitle2,
+                          ),
+                        );
+                      } else {
+                        List<DropdownMenuItem<int>> list = [];
+                        list.clear();
+                        Map dropDownItemsMap = new Map();
 
-                    snapshot.data.forEach((state) {
-                      //listItemNames.add(branchItem.itemName);
-                      int index = snapshot.data.indexOf(state);
-                      dropDownItemsMap[index] = state.stateName;
+                        snapshot.data.forEach((state) {
+                          //listItemNames.add(branchItem.itemName);
+                          int index = snapshot.data.indexOf(state);
+                          dropDownItemsMap[index] = state.stateName;
 
-                      list.add(new DropdownMenuItem<int>(
-                          value: index,
-                          child: Text(state.stateName,
-                              style: Theme.of(context).textTheme.subtitle2)));
-                    });
+                          list.add(new DropdownMenuItem<int>(
+                              value: index,
+                              child: Text(state.stateName,
+                                  style:
+                                      Theme.of(context).textTheme.subtitle2)));
+                        });
 
-                    return DropdownButton<int>(
-                        isExpanded: true,
-                        items: list,
-                        onChanged: (int selected) {
-                          var _selectedItem = list[selected].value;
-                          setState(() {
-                            stateName = dropDownItemsMap[_selectedItem];
-                            stateId = _states
-                                .singleWhere(
-                                    (element) => element.stateName == stateName)
-                                .stateId;
-                          });
-                        },
-                        hint: new Text(
-                          stateName,
-                          style: Theme.of(context).textTheme.subtitle2,
-                        ),
-                        // child: FutureBuilder(
-                        dropdownColor: Colors.lightBlue.shade400);
-                  }
-                },
-              ),
-              FutureBuilder(
-                future: getDistricts(stateId),
-                builder: (BuildContext context, AsyncSnapshot snapshot) {
-                  if (snapshot.data == null) {
-                    return DropdownButton<String>(
-                      isExpanded: true,
-                      items: [],
-                      value: districtName,
-                    );
-                  } else {
-                    List<DropdownMenuItem<int>> list = [];
-                    list.clear();
-                    Map dropDownItemsMap = new Map();
+                        return DropdownButton<int>(
+                            isExpanded: true,
+                            items: list,
+                            onChanged: (int selected) {
+                              var _selectedItem = list[selected].value;
+                              setState(() {
+                                stateName = dropDownItemsMap[_selectedItem];
+                                stateId = _states
+                                    .singleWhere((element) =>
+                                        element.stateName == stateName)
+                                    .stateId;
+                                districtName = districtNamePlaceholderText;
+                                districtId = -1;
+                              });
+                            },
+                            hint: new Text(
+                              stateName,
+                              style: Theme.of(context).textTheme.subtitle2,
+                            ),
+                            // child: FutureBuilder(
+                            dropdownColor: Colors.grey.shade800,
+                            iconEnabledColor: Colors.white);
+                      }
+                    },
+                  ),
+                  FutureBuilder(
+                    future: getDistricts(stateId),
+                    builder: (BuildContext context, AsyncSnapshot snapshot) {
+                      if (snapshot.data == null) {
+                        return DropdownButton<String>(
+                          isExpanded: true,
+                          items: [],
+                          // value: districtName,
+                          hint: new Text(
+                            districtName,
+                            style: Theme.of(context).textTheme.subtitle2,
+                          ),
+                        );
+                      } else {
+                        List<DropdownMenuItem<int>> list = [];
+                        list.clear();
+                        Map dropDownItemsMap = new Map();
 
-                    snapshot.data.forEach((district) {
-                      int index = snapshot.data.indexOf(district);
-                      dropDownItemsMap[index] = district.districtName;
+                        snapshot.data.forEach((district) {
+                          int index = snapshot.data.indexOf(district);
+                          dropDownItemsMap[index] = district.districtName;
 
-                      list.add(new DropdownMenuItem<int>(
-                          value: index,
-                          child: Text(district.districtName,
-                              style: Theme.of(context).textTheme.subtitle2)));
-                    });
+                          list.add(new DropdownMenuItem<int>(
+                              value: index,
+                              child: Text(district.districtName,
+                                  style:
+                                      Theme.of(context).textTheme.subtitle2)));
+                        });
 
-                    return DropdownButton<int>(
-                        isExpanded: true,
-                        items: list,
-                        onChanged: (int selected) {
-                          var _selectedItem = list[selected].value;
-                          setState(() {
-                            districtName = dropDownItemsMap[_selectedItem];
-                            districtId = _districts
-                                .singleWhere((element) =>
-                                    element.districtName == districtName)
-                                .districtId;
-                          });
-                        },
-                        hint: new Text(
-                          districtName,
-                          style: Theme.of(context).textTheme.subtitle2,
-                        ),
-                        dropdownColor: Colors.lightBlue.shade400);
-                  }
-                },
-              ),
-              new TextField(
-                decoration: new InputDecoration(hintText: "Enter your age"),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                keyboardType: TextInputType.number,
-                controller: ageController,
-              ),
-              new ElevatedButton(
-                child: Text('Submit',
-                    style: Theme.of(context).textTheme.subtitle2),
-                onPressed: () => _pushSubmit(),
-              ),
-            ])));
+                        return DropdownButton<int>(
+                            isExpanded: true,
+                            items: list,
+                            onChanged: (int selected) {
+                              var _selectedItem = list[selected].value;
+                              setState(() {
+                                districtName = dropDownItemsMap[_selectedItem];
+                                districtId = _districts
+                                    .singleWhere((element) =>
+                                        element.districtName == districtName)
+                                    .districtId;
+                              });
+                            },
+                            hint: new Text(
+                              districtName,
+                              style: Theme.of(context).textTheme.subtitle2,
+                            ),
+                            dropdownColor: Colors.grey.shade800,
+                            iconEnabledColor: Colors.white);
+                      }
+                    },
+                  ),
+                  new TextField(
+                    decoration: new InputDecoration(
+                        hintText: "Enter your age",
+                        hintStyle: Theme.of(context).textTheme.bodyText2),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    keyboardType: TextInputType.number,
+                    controller: ageController,
+                  ),
+                  new ElevatedButton(
+                    child: Text(
+                      'Submit',
+                      style: Theme.of(context).textTheme.subtitle2,
+                    ),
+                    onPressed: () => _pushSubmit(),
+                    style: ElevatedButton.styleFrom(
+                      primary: Colors.grey.shade900, // background
+                      // onPrimary: Colors.white, // foreground
+                    ),
+                  ),
+                ])));
   }
 }
 

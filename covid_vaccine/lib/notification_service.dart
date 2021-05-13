@@ -12,12 +12,13 @@ class NotificationService {
 
   static const AndroidNotificationDetails androidPlatformChannelSpecifics =
       AndroidNotificationDetails(
-    "covidVaccineId", //Required for Android 8.0 or after
-    "covidVaccineChannel", //Required for Android 8.0 or after
-    "covidVaccineDescription", //Required for Android 8.0 or after
-    importance: Importance.high,
-    priority: Priority.high,
-  );
+          "covidVaccineId", //Required for Android 8.0 or after
+          "covidVaccineChannel", //Required for Android 8.0 or after
+          "covidVaccineDescription", //Required for Android 8.0 or after
+          importance: Importance.max,
+          priority: Priority.max,
+          // fullScreenIntent: true,
+          visibility: NotificationVisibility.public);
 
   NotificationDetails platformChannelSpecifics =
       NotificationDetails(android: androidPlatformChannelSpecifics);

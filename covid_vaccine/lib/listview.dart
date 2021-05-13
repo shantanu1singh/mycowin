@@ -105,25 +105,6 @@ class AppointmentListView extends StatefulWidget {
   _AppointmentListViewState createState() => _AppointmentListViewState();
 }
 
-// class SecondRoute extends StatelessWidget {
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text("Second Route"),
-//       ),
-//       body: Center(
-//         child: ElevatedButton(
-//           onPressed: () {
-//             // Navigate back to first route when tapped.
-//           },
-//           child: Text('Go back!'),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 class _AppointmentListViewState extends State<AppointmentListView> {
   final _appointments = <SessionCalendarEntrySchema>[];
   CowinApi cowinApi;
