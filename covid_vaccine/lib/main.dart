@@ -77,7 +77,8 @@ class MyApp extends StatelessWidget {
               bodyText2: TextStyle(fontSize: 15, color: Colors.white)),
         ),
         home: MyHomePage(title: 'MyCowin'),
-        routes: routes);
+        routes: routes,
+        debugShowCheckedModeBanner:false);
   }
 }
 
