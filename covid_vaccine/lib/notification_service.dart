@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:math';
+import 'dart:io' show Platform;
 
 class NotificationService {
   static final NotificationService _notificationService =
@@ -20,7 +21,7 @@ class NotificationService {
           // fullScreenIntent: true,
           visibility: NotificationVisibility.public);
 
-  NotificationDetails platformChannelSpecifics =
+  NotificationDetails androidNotificationDetails =
       NotificationDetails(android: androidPlatformChannelSpecifics);
 
   static const IOSNotificationDetails iOSPlatformChannelSpecifics =
@@ -38,8 +39,8 @@ class NotificationService {
     // threadIdentifier: String? (only from iOS 10 onwards)
   );
 
-  // NotificationDetails platformChannelSpecifics =
-  //     NotificationDetails(iOS: iOSPlatformChannelSpecifics);
+  NotificationDetails iOSNotificationDetails =
+      NotificationDetails(iOS: iOSPlatformChannelSpecifics);
   var rng = new Random();
 
   factory NotificationService() {
@@ -75,7 +76,29 @@ class NotificationService {
   }
 
   Future showNotification(String title, String body) async {
+    NotificationDetails notificationDetailsCurrent = this.androidNotificationDetails;
+    if (Platform.isAndroid)
+    {
+      notificationDetailsCurrent = this.androidNotificationDetails;
+    }
+    else
+    {
+      notificationDetailsCurrent = this.iOSNotificationDetails;
+    }
+
     await flutterLocalNotificationsPlugin.show(
-        rng.nextInt(maxInt), title, body, platformChannelSpecifics);
+        rng.nextInt(maxInt), title, body, notificationDetailsCurrent);
+  }
+
+  Future requestPermissions() async
+  {
+    final bool result = await flutterLocalNotificationsPlugin
+    .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>()
+    ?.requestPermissions(
+    alert: true,
+    badge: true,
+    sound: true,
+    );
   }
 }

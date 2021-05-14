@@ -103,6 +103,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final ageController = TextEditingController();
 
   var _states = <InlineResponse2002States>[];
+
+  bool districtsInitialized = false;
   var _districts = <InlineResponse2003Districts>[];
 
   static const String stateNamePlaceholderText = "Choose a state..";
@@ -131,7 +133,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<List<InlineResponse2002States>> getStates() async {
-    if (this._states != null) {
+    if (this._states.length > 0) {
       return this._states;
     }
 
@@ -151,7 +153,7 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
 
-    if (this._districts != null) {
+    if (this.districtsInitialized) {
       return this._districts;
     }
 
@@ -159,6 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
     var response = await metadataApi.districts(stateId.toString());
     if (response.statusCode == 200) {
       this._districts = response.data.districts.toList();
+      this.districtsInitialized = true;
       return this._districts;
     } else {
       // If the server did not return a 200 OK response,
@@ -312,6 +315,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                               element.stateName ==
                                               this.store.stateName)
                                           .stateId;
+                                      this.districtsInitialized = false;
                                       this.store.districtName = _MyHomePageState
                                           .districtNamePlaceholderText;
                                       this.store.districtId = -1;
@@ -529,16 +533,25 @@ final CowinApi cowinApi = createMyApi();
 Future updateNotifications(
   StateStore stateStore,
 ) async {
-  notificationService = NotificationService();
-  await notificationService.init();
+  if (notificationService == null)
+  {
+    notificationService = NotificationService();
+    await notificationService.init();
+  }
 
   // final cron = Cron();
   // cron.schedule(Schedule.parse('0 * * * *'), () async {
 
   if (!stateStore.notificationsEnabled) {
-    cron.close();
+    if (cron != null)
+    {
+      cron.close();
+    }
+    
     return;
   }
+
+  await notificationService.requestPermissions();
 
   String schedule;
   switch (stateStore.notificationsFreqUnit) {
