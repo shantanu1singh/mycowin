@@ -625,6 +625,7 @@ Future updateNotifications(
 
 void callbackDispatcher() {
   Workmanager.executeTask((task, inputData) async {
+    print("Executing callback");
     await sendNotificationIfAptsAvailable();
   });
 }
@@ -633,12 +634,17 @@ Future sendNotificationIfAptsAvailable() async {
   try {
     StateStore stateStore = await StateStore.fromStore();
 
+    print(stateStore.stateId);
+    print(stateStore.districtId);
+    print(stateStore.age);
+    print(stateStore.notificationsEnabled);
     if (stateStore.stateId == -1 ||
         stateStore.districtId == -1 ||
         stateStore.age == -1 ||
         !stateStore.notificationsEnabled) {
       return;
     }
+
     List<SessionCalendarEntrySchema> appointments =
         await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
             stateStore.districtId, stateStore.age);
@@ -649,6 +655,7 @@ Future sendNotificationIfAptsAvailable() async {
           totalAvailability += sess.availableCapacity;
         });
       });
+
       await new NotificationService().showNotification(
           "Appointments available.",
           "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
@@ -680,7 +687,6 @@ class StateStore {
 
   static Future<StateStore> fromStore() async {
     final prefs = await SharedPreferences.getInstance();
-
     String stateName = prefs.getString('sName') ?? null;
     if (stateName == null) {
       return null;
