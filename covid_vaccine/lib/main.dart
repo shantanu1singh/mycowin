@@ -5,17 +5,22 @@ import 'package:cowin_api/model/session_calendar_entry_schema.dart';
 import 'package:cowin_api/model/inline_response2003_districts.dart';
 import 'package:cowin_api/model/inline_response2002_states.dart';
 import 'package:flutter/services.dart';
-import 'package:cron/cron.dart';
+// import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 // import 'listview.dart';
 import 'tabview.dart';
 import 'notification_service.dart';
 
-NotificationService notificationService;
-Cron cron;
+// NotificationService notificationService;
+// Cron cron;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Workmanager.initialize(
+      callbackDispatcher, // The top level function, aka callbackDispatcher
+      isInDebugMode: false // This should be false
+      );
   runApp(MyApp());
 }
 
@@ -78,7 +83,7 @@ class MyApp extends StatelessWidget {
         ),
         home: MyHomePage(title: 'MyCowin'),
         routes: routes,
-        debugShowCheckedModeBanner:false);
+        debugShowCheckedModeBanner: false);
   }
 }
 
@@ -534,63 +539,114 @@ final CowinApi cowinApi = createMyApi();
 Future updateNotifications(
   StateStore stateStore,
 ) async {
-  if (notificationService == null)
-  {
-    notificationService = NotificationService();
-    await notificationService.init();
-  }
+  // if (notificationService == null) {
+  // notificationService = NotificationService();
+  // await notificationService.init();
+  // }
 
   // final cron = Cron();
   // cron.schedule(Schedule.parse('0 * * * *'), () async {
 
+  String notificationsTaskUniqueName = "myCowinNotifs";
+
+  Workmanager.cancelByUniqueName(notificationsTaskUniqueName);
   if (!stateStore.notificationsEnabled) {
-    if (cron != null)
-    {
-      cron.close();
-    }
-    
     return;
   }
 
+  NotificationService notificationService = new NotificationService();
+  await notificationService.init();
   await notificationService.requestPermissions();
 
-  String schedule;
+  // String schedule;
+  // switch (stateStore.notificationsFreqUnit) {
+  //   case "minutes":
+  //     schedule = "*/${stateStore.notificationsFreqValue} * * * *";
+  //     break;
+  //   case "hours":
+  //     schedule = "* */${stateStore.notificationsFreqValue} * * *";
+  //     break;
+  //   case "days":
+  //     schedule = "* * */${stateStore.notificationsFreqValue} * *";
+  //     break;
+  // }
+
+  // if (cron != null) {
+  //   cron.close();
+  // }
+
+  Duration interval;
   switch (stateStore.notificationsFreqUnit) {
     case "minutes":
-      schedule = "*/${stateStore.notificationsFreqValue} * * * *";
+      interval = Duration(minutes: stateStore.notificationsFreqValue);
       break;
     case "hours":
-      schedule = "* */${stateStore.notificationsFreqValue} * * *";
+      interval = Duration(hours: stateStore.notificationsFreqValue);
       break;
     case "days":
-      schedule = "* * */${stateStore.notificationsFreqValue} * *";
+      interval = Duration(days: stateStore.notificationsFreqValue);
       break;
   }
 
-  if (cron != null) {
-    cron.close();
-  }
+  Workmanager.registerPeriodicTask(
+    notificationsTaskUniqueName,
+    "registerNotificationTask",
+    frequency: interval,
+    initialDelay: interval,
+  );
 
-  cron = Cron();
-  cron.schedule(Schedule.parse(schedule), () async {
-    if (stateStore.stateId != -1 && stateStore.age != -1) {
-      try {
-        List<SessionCalendarEntrySchema> appointments =
-            await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
-                stateStore.districtId, stateStore.age);
-        if (appointments != null && appointments.length > 0) {
-          int totalAvailability = 0;
-          appointments.forEach((apt) {
-            apt.sessions.forEach((sess) {
-              totalAvailability += sess.availableCapacity;
-            });
-          });
-          notificationService.showNotification("Appointments available.",
-              "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
-        }
-      } catch (Exception) {}
-    }
+  // cron = Cron();
+  // cron.schedule(Schedule.parse(schedule), () async {
+  //   if (stateStore.stateId != -1 && stateStore.age != -1) {
+  // try {
+  //   List<SessionCalendarEntrySchema> appointments =
+  //       await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
+  //           stateStore.districtId, stateStore.age);
+  //   if (appointments != null && appointments.length > 0) {
+  //     int totalAvailability = 0;
+  //     appointments.forEach((apt) {
+  //       apt.sessions.forEach((sess) {
+  //         totalAvailability += sess.availableCapacity;
+  //       });
+  //     });
+  //     notificationService.showNotification("Appointments available.",
+  //         "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
+  //   }
+  // } catch (Exception) {}
+  //   }
+  // });
+}
+
+void callbackDispatcher() {
+  Workmanager.executeTask((task, inputData) async {
+    await sendNotificationIfAptsAvailable();
   });
+}
+
+Future sendNotificationIfAptsAvailable() async {
+  try {
+    StateStore stateStore = await StateStore.fromStore();
+
+    if (stateStore.stateId == -1 ||
+        stateStore.districtId == -1 ||
+        stateStore.age == -1) {
+      return;
+    }
+    List<SessionCalendarEntrySchema> appointments =
+        await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
+            stateStore.districtId, stateStore.age);
+    if (appointments != null && appointments.length > 0) {
+      int totalAvailability = 0;
+      appointments.forEach((apt) {
+        apt.sessions.forEach((sess) {
+          totalAvailability += sess.availableCapacity;
+        });
+      });
+      await new NotificationService().showNotification(
+          "Appointments available.",
+          "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
+    }
+  } catch (Exception) {}
 }
 
 class StateStore {
