@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 // import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'dart:io' show Platform;
 // import 'listview.dart';
 import 'tabview.dart';
 import 'notification_service.dart';
@@ -549,7 +550,9 @@ Future updateNotifications(
 
   String notificationsTaskUniqueName = "myCowinNotifs";
 
-  Workmanager.cancelByUniqueName(notificationsTaskUniqueName);
+  if (Platform.isAndroid) {
+    Workmanager.cancelByUniqueName(notificationsTaskUniqueName);
+  }
   if (!stateStore.notificationsEnabled) {
     return;
   }
@@ -575,25 +578,28 @@ Future updateNotifications(
   //   cron.close();
   // }
 
-  Duration interval;
-  switch (stateStore.notificationsFreqUnit) {
-    case "minutes":
-      interval = Duration(minutes: stateStore.notificationsFreqValue);
-      break;
-    case "hours":
-      interval = Duration(hours: stateStore.notificationsFreqValue);
-      break;
-    case "days":
-      interval = Duration(days: stateStore.notificationsFreqValue);
-      break;
-  }
+  // Duration interval;
+  // switch (stateStore.notificationsFreqUnit) {
+  //   case "minutes":
+  //     interval = Duration(minutes: stateStore.notificationsFreqValue);
+  //     break;
+  //   case "hours":
+  //     interval = Duration(hours: stateStore.notificationsFreqValue);
+  //     break;
+  //   case "days":
+  //     interval = Duration(days: stateStore.notificationsFreqValue);
+  //     break;
+  // }
 
-  Workmanager.registerPeriodicTask(
-    notificationsTaskUniqueName,
-    "registerNotificationTask",
-    frequency: interval,
-    initialDelay: interval,
-  );
+  if (Platform.isAndroid) {
+    Duration interval = new Duration(minutes: 15);
+    Workmanager.registerPeriodicTask(
+      notificationsTaskUniqueName,
+      "registerNotificationTask",
+      frequency: interval,
+      initialDelay: interval,
+    );
+  }
 
   // cron = Cron();
   // cron.schedule(Schedule.parse(schedule), () async {
@@ -629,7 +635,8 @@ Future sendNotificationIfAptsAvailable() async {
 
     if (stateStore.stateId == -1 ||
         stateStore.districtId == -1 ||
-        stateStore.age == -1) {
+        stateStore.age == -1 ||
+        !stateStore.notificationsEnabled) {
       return;
     }
     List<SessionCalendarEntrySchema> appointments =
