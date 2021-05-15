@@ -120,7 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool stateStoreInitialized = false;
 
   StateStore store = new StateStore(stateNamePlaceholderText, -1,
-      districtNamePlaceholderText, -1, -1, 0, false, "hours", 1);
+      districtNamePlaceholderText, -1, -1, -1, false, "hours", 1);
 
   Future refreshFromStore() async {
     if (!this.stateStoreInitialized) {
@@ -172,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future _saveState() async {
-    if (this.store.age == -1) {
+    if (this.ageController.text != null && this.ageController.text.isNotEmpty) {
       this.store.age = num.parse(this.ageController.text);
     }
     await this.store.saveStore();
