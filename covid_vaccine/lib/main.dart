@@ -118,7 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final Map<String, List<num>> notificationFrequencyUnitToValuesMap = {
     "hours": new List<int>.generate(24, (i) => i + 1),
-    "minutes": new List<int>.generate(60, (i) => i + 1),
+    "minutes": new List<int>.generate(60, (i) => i + 15),
     "days": new List<int>.generate(7, (i) => i + 1),
   };
 
