@@ -20,7 +20,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Workmanager.initialize(
       callbackDispatcher, // The top level function, aka callbackDispatcher
-      isInDebugMode: false // This should be false
+      isInDebugMode: true // This should be false
       );
   runApp(MyApp());
 }
@@ -627,6 +627,7 @@ void callbackDispatcher() {
   Workmanager.executeTask((task, inputData) async {
     print("Executing callback");
     await sendNotificationIfAptsAvailable();
+    return Future.value(true);
   });
 }
 
@@ -660,7 +661,10 @@ Future sendNotificationIfAptsAvailable() async {
           "Appointments available.",
           "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
     }
-  } catch (Exception) {}
+  } catch (e) {
+    print("Exception while running sendNotificationIfAptsAvailable");
+    print(e);
+  }
 }
 
 class StateStore {
