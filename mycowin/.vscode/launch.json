@@ -6,14 +6,6 @@
     "configurations": [
         {
             "name": "mycowin",
-            "cwd": "mycowin",
-            "request": "launch",
-            "type": "dart",
-            "program": "${workspaceFolder}/mycowin/lib/main.dart"
-        },
-        {
-            "name": "cowin_api",
-            "cwd": "cowin_api",
             "request": "launch",
             "type": "dart"
         }
