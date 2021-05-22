@@ -5,21 +5,17 @@ import 'package:cowin_api/model/session_calendar_entry_schema.dart';
 import 'package:cowin_api/model/inline_response2003_districts.dart';
 import 'package:cowin_api/model/inline_response2002_states.dart';
 import 'package:flutter/services.dart';
-// import 'package:cron/cron.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'dart:io' show Platform;
-// import 'listview.dart';
 import 'tabview.dart';
 import 'notification_service.dart';
-
-// Cron cron;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Workmanager.initialize(
       callbackDispatcher, // The top level function, aka callbackDispatcher
-      isInDebugMode: true // This should be false
+      isInDebugMode: false // This should be false
       );
   runApp(MyApp());
 }
@@ -61,12 +57,9 @@ CowinApi createMyApi() {
 }
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     var routes = <String, WidgetBuilder>{
-      // AppointmentListView.routeName: (BuildContext context) =>
-      //     new AppointmentListView(),
       AppointmentListTabbedView.routeName: (BuildContext context) =>
           new AppointmentListTabbedView(),
     };
@@ -89,15 +82,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -185,19 +169,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future _pushSubmit() async {
     await _saveState();
-
-    // Navigator.pushNamed(
-    //   context,
-    //   AppointmentListView.routeName,
-    //   arguments: AppointmentListViewArguments(
-    //     cowinApi,
-    //     stateId,
-    //     districtId,
-    //     pinCode,
-    //     age,
-    //   ),
-    // );
-
     await updateNotifications(this.store);
 
     Navigator.pushNamed(
@@ -237,19 +208,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return FutureBuilder<void>(
         future: refreshFromStore(),
         builder: (context, AsyncSnapshot<void> snapshot) {
           return Scaffold(
               appBar: AppBar(
-                // Here we take the value from the MyHomePage object that was created by
-                // the App.build method, and use it to set our appbar title.
                 title: Text(widget.title,
                     style: Theme.of(context).textTheme.subtitle2),
                 backgroundColor: Colors.grey.shade800,
@@ -279,11 +242,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           builder:
                               (BuildContext context, AsyncSnapshot snapshot) {
                             if (snapshot.data == null) {
-                              // return CircularProgressIndicator();
                               return DropdownButton<String>(
                                 isExpanded: true,
                                 items: [],
-                                // value: stateName,
                                 hint: new Text(
                                   this.store.stateName,
                                   style: Theme.of(context).textTheme.subtitle2,
@@ -295,7 +256,6 @@ class _MyHomePageState extends State<MyHomePage> {
                               Map dropDownItemsMap = new Map();
 
                               snapshot.data.forEach((state) {
-                                //listItemNames.add(branchItem.itemName);
                                 int index = snapshot.data.indexOf(state);
                                 dropDownItemsMap[index] = state.stateName;
 
@@ -332,7 +292,6 @@ class _MyHomePageState extends State<MyHomePage> {
                                     style:
                                         Theme.of(context).textTheme.subtitle2,
                                   ),
-                                  // child: FutureBuilder(
                                   dropdownColor: Colors.grey.shade800,
                                   iconEnabledColor: Colors.white);
                             }
@@ -346,7 +305,6 @@ class _MyHomePageState extends State<MyHomePage> {
                               return DropdownButton<String>(
                                 isExpanded: true,
                                 items: [],
-                                // value: districtName,
                                 hint: new Text(
                                   this.store.districtName,
                                   style: Theme.of(context).textTheme.subtitle2,
@@ -408,7 +366,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           controller: this.ageController,
                         ),
                         new Row(
-                          // mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
                             SizedBox(
                               child: new Padding(
@@ -442,98 +399,87 @@ class _MyHomePageState extends State<MyHomePage> {
                                 )),
                           ],
                         ),
-                        new Row(
-                            // mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              SizedBox(
-                                child: new Padding(
-                                  padding: const EdgeInsets.only(left: 25.0),
-                                  child: new Text(
-                                    "Every",
+                        new Row(children: <Widget>[
+                          SizedBox(
+                            child: new Padding(
+                              padding: const EdgeInsets.only(left: 25.0),
+                              child: new Text(
+                                "Every",
+                                style: Theme.of(context).textTheme.bodyText2,
+                              ),
+                            ),
+                          ),
+                          new Flexible(
+                            child: new Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 40.0, right: 20.0),
+                              child: DropdownButton<int>(
+                                  isExpanded: true,
+                                  items: notificationFrequencyUnitToValuesMap[
+                                          this.store.notificationsFreqUnit]
+                                      .map<DropdownMenuItem<int>>((num value) {
+                                    String freqValueAsString = value.toString();
+                                    return DropdownMenuItem<int>(
+                                      value: value,
+                                      child: Text(freqValueAsString,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyText2),
+                                    );
+                                  }).toList(),
+                                  onChanged: (int selected) {
+                                    setState(() {
+                                      this.store.notificationsFreqValue =
+                                          selected;
+                                      updateNotifications(this.store);
+                                    });
+                                  },
+                                  hint: new Text(
+                                    this
+                                        .store
+                                        .notificationsFreqValue
+                                        .toString(),
                                     style:
                                         Theme.of(context).textTheme.bodyText2,
                                   ),
-                                ),
-                              ),
-                              new Flexible(
-                                child: new Padding(
-                                  padding: const EdgeInsets.only(
-                                      left: 40.0, right: 20.0),
-                                  child: DropdownButton<int>(
-                                      isExpanded: true,
-                                      items:
-                                          notificationFrequencyUnitToValuesMap[
-                                                  this
-                                                      .store
-                                                      .notificationsFreqUnit]
-                                              .map<DropdownMenuItem<int>>(
-                                                  (num value) {
-                                        String freqValueAsString =
-                                            value.toString();
-                                        return DropdownMenuItem<int>(
-                                          value: value,
-                                          child: Text(freqValueAsString,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyText2),
-                                        );
-                                      }).toList(),
-                                      onChanged: (int selected) {
-                                        setState(() {
-                                          this.store.notificationsFreqValue =
-                                              selected;
-                                          updateNotifications(this.store);
-                                        });
-                                      },
-                                      hint: new Text(
-                                        this
-                                            .store
-                                            .notificationsFreqValue
-                                            .toString(),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyText2,
-                                      ),
-                                      dropdownColor: Colors.grey.shade800,
-                                      iconEnabledColor: Colors.white),
-                                ),
-                              ),
-                              new Flexible(
-                                child: new Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: 5.0, right: 20.0),
-                                    child: new DropdownButton<String>(
-                                        isExpanded: true,
-                                        items:
-                                            notificationFrequencyUnitToValuesMap
-                                                .keys
-                                                .map<DropdownMenuItem<String>>(
-                                                    (String value) {
-                                          return DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(value,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyText2),
-                                          );
-                                        }).toList(),
-                                        onChanged: (String selected) {
-                                          setState(() {
-                                            this.store.notificationsFreqUnit =
-                                                selected;
-                                            updateNotifications(this.store);
-                                          });
-                                        },
-                                        hint: new Text(
-                                          this.store.notificationsFreqUnit,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyText2,
-                                        ),
-                                        dropdownColor: Colors.grey.shade800,
-                                        iconEnabledColor: Colors.white)),
-                              ),
-                            ]),
+                                  dropdownColor: Colors.grey.shade800,
+                                  iconEnabledColor: Colors.white),
+                            ),
+                          ),
+                          new Flexible(
+                            child: new Padding(
+                                padding: const EdgeInsets.only(
+                                    left: 5.0, right: 20.0),
+                                child: new DropdownButton<String>(
+                                    isExpanded: true,
+                                    items: notificationFrequencyUnitToValuesMap
+                                        .keys
+                                        .map<DropdownMenuItem<String>>(
+                                            (String value) {
+                                      return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyText2),
+                                      );
+                                    }).toList(),
+                                    onChanged: (String selected) {
+                                      setState(() {
+                                        this.store.notificationsFreqUnit =
+                                            selected;
+                                        updateNotifications(this.store);
+                                      });
+                                    },
+                                    hint: new Text(
+                                      this.store.notificationsFreqUnit,
+                                      style:
+                                          Theme.of(context).textTheme.bodyText2,
+                                    ),
+                                    dropdownColor: Colors.grey.shade800,
+                                    iconEnabledColor: Colors.white)),
+                          ),
+                        ]),
                         getNotificationStatusTextWidget(),
                         new Flexible(
                             child: new Padding(
@@ -560,14 +506,6 @@ final CowinApi cowinApi = createMyApi();
 Future updateNotifications(
   StateStore stateStore,
 ) async {
-  // if (notificationService == null) {
-  // notificationService = NotificationService();
-  // await notificationService.init();
-  // }
-
-  // final cron = Cron();
-  // cron.schedule(Schedule.parse('0 * * * *'), () async {
-
   String notificationsTaskUniqueName = "myCowinNotifs";
 
   if (Platform.isAndroid) {
@@ -581,36 +519,6 @@ Future updateNotifications(
   await notificationService.init();
   await notificationService.requestPermissions();
 
-  // String schedule;
-  // switch (stateStore.notificationsFreqUnit) {
-  //   case "minutes":
-  //     schedule = "*/${stateStore.notificationsFreqValue} * * * *";
-  //     break;
-  //   case "hours":
-  //     schedule = "* */${stateStore.notificationsFreqValue} * * *";
-  //     break;
-  //   case "days":
-  //     schedule = "* * */${stateStore.notificationsFreqValue} * *";
-  //     break;
-  // }
-
-  // if (cron != null) {
-  //   cron.close();
-  // }
-
-  // Duration interval;
-  // switch (stateStore.notificationsFreqUnit) {
-  //   case "minutes":
-  //     interval = Duration(minutes: stateStore.notificationsFreqValue);
-  //     break;
-  //   case "hours":
-  //     interval = Duration(hours: stateStore.notificationsFreqValue);
-  //     break;
-  //   case "days":
-  //     interval = Duration(days: stateStore.notificationsFreqValue);
-  //     break;
-  // }
-
   if (Platform.isAndroid) {
     Duration interval = new Duration(minutes: 15);
     Workmanager.registerPeriodicTask(
@@ -620,27 +528,6 @@ Future updateNotifications(
       initialDelay: interval,
     );
   }
-
-  // cron = Cron();
-  // cron.schedule(Schedule.parse(schedule), () async {
-  //   if (stateStore.stateId != -1 && stateStore.age != -1) {
-  // try {
-  //   List<SessionCalendarEntrySchema> appointments =
-  //       await getAppointmentsByDistrictForWeek(cowinApi, stateStore.stateId,
-  //           stateStore.districtId, stateStore.age);
-  //   if (appointments != null && appointments.length > 0) {
-  //     int totalAvailability = 0;
-  //     appointments.forEach((apt) {
-  //       apt.sessions.forEach((sess) {
-  //         totalAvailability += sess.availableCapacity;
-  //       });
-  //     });
-  //     notificationService.showNotification("Appointments available.",
-  //         "$totalAvailability appointments available in ${stateStore.districtName}, ${stateStore.stateName}.");
-  //   }
-  // } catch (Exception) {}
-  //   }
-  // });
 }
 
 void callbackDispatcher() {
