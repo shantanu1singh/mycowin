@@ -1,6 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import 'dart:math';
 import 'dart:io' show Platform;
 
@@ -18,7 +17,6 @@ class NotificationService {
           "covidVaccineDescription", //Required for Android 8.0 or after
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-          // fullScreenIntent: true,
           visibility: NotificationVisibility.public);
 
   NotificationDetails androidNotificationDetails =
@@ -32,11 +30,6 @@ class NotificationService {
         false, // Present the badge number when the notification is displayed and the application is in the foreground (only from iOS 10 onwards)
     presentSound:
         false, // Play a sound when the notification is displayed and the application is in the foreground (only from iOS 10 onwards)
-    // sound: String?,  // Specifics the file path to play (only from iOS 10 onwards)
-    // badgeNumber: int?, // The application's icon badge number
-    // attachments: List<IOSNotificationAttachment>?, (only from iOS 10 onwards)
-    // subtitle: String?, //Secondary description  (only from iOS 10 onwards)
-    // threadIdentifier: String? (only from iOS 10 onwards)
   );
 
   NotificationDetails iOSNotificationDetails =
@@ -76,13 +69,11 @@ class NotificationService {
   }
 
   Future showNotification(String title, String body) async {
-    NotificationDetails notificationDetailsCurrent = this.androidNotificationDetails;
-    if (Platform.isAndroid)
-    {
+    NotificationDetails notificationDetailsCurrent =
+        this.androidNotificationDetails;
+    if (Platform.isAndroid) {
       notificationDetailsCurrent = this.androidNotificationDetails;
-    }
-    else
-    {
+    } else {
       notificationDetailsCurrent = this.iOSNotificationDetails;
     }
 
@@ -90,15 +81,14 @@ class NotificationService {
         rng.nextInt(maxInt), title, body, notificationDetailsCurrent);
   }
 
-  Future requestPermissions() async
-  {
+  Future requestPermissions() async {
     final bool result = await flutterLocalNotificationsPlugin
-    .resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>()
-    ?.requestPermissions(
-    alert: true,
-    badge: true,
-    sound: true,
-    );
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
   }
 }

@@ -11,8 +11,6 @@ Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict(
   DateTime now = new DateTime.now();
   final DateFormat formatter = DateFormat('dd-MM-yyyy');
   final String formatted = formatter.format(now);
-  // final String formatted = formatter.format(new DateTime(2021, 5, 10));
-  // var response = await appointmentApi.calendarByPin("110070", formatted);
   var response =
       await appointmentApi.calendarByDistrict(districtId.toString(), formatted);
 
@@ -43,8 +41,6 @@ Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrictForWeek(
   DateTime now = new DateTime.now();
   final DateFormat formatter = DateFormat('dd-MM-yyyy');
   final String formatted = formatter.format(now);
-  // final String formatted = formatter.format(new DateTime(2021, 5, 10));
-  // var response = await appointmentApi.calendarByPin("110070", formatted);
   var response =
       await appointmentApi.calendarByDistrict(districtId.toString(), formatted);
 
@@ -78,28 +74,9 @@ class AppointmentListTabbedViewArguments {
 }
 
 class AppointmentListTabbedView extends StatefulWidget {
-  AppointmentListTabbedView(
-      // {Key key, this.cowinApi, this.stateId, this.districtId, this.pinCode})
-      {Key key})
-      : super(key: key);
+  AppointmentListTabbedView({Key key}) : super(key: key);
 
   static const String routeName = "/AppointmentListTabbedView";
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-  // final CowinApi cowinApi;
-  // final num stateId;
-  // final num districtId;
-  // final int pinCode;
-
-  // @override
-  // _AppointmentListViewState createState() =>
-  //     _AppointmentListViewState(cowinApi, stateId, districtId, pinCode);
 
   @override
   _AppointmentListTabbedViewState createState() =>
@@ -110,44 +87,9 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
     with AutomaticKeepAliveClientMixin<AppointmentListTabbedView> {
   final _appointments = <SessionCalendarEntrySchema>[];
   CowinApi cowinApi;
-  // final num stateId;
-  // final num districtId;
-  // final int pinCode;
 
   @override
   bool get wantKeepAlive => true;
-
-  Future<List<SessionCalendarEntrySchema>> getAppointmentsByDistrict1(
-      num stateId, num districtId, num age) async {
-    var appointmentApi = cowinApi.getAppointmentAvailabilityAPIsApi();
-
-    DateTime now = new DateTime.now();
-    final DateFormat formatter = DateFormat('dd-MM-yyyy');
-    final String formatted = formatter.format(now);
-    // final String formatted = formatter.format(new DateTime(2021, 5, 10));
-    // var response = await appointmentApi.calendarByPin("110070", formatted);
-    var response = await appointmentApi.calendarByDistrict(
-        districtId.toString(), formatted);
-
-    if (response.statusCode == 200) {
-      var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
-          .data.asMap["centers"]
-          .map((value) => cowinApi.serializers
-              .deserializeWith(SessionCalendarEntrySchema.serializer, value))
-          .toList(growable: false));
-
-      var des2 = des1.where((x) {
-        var todaysSession = x.sessions.where((y) => y.date == formatted);
-        return todaysSession != null &&
-            todaysSession.length == 1 &&
-            todaysSession.first.minAgeLimit <= age &&
-            todaysSession.first.availableCapacity > 0;
-      }).toList();
-      return des2;
-    } else {
-      throw Exception('Failed to get appointments');
-    }
-  }
 
   Future<List<SessionCalendarEntrySchema>> getAppointmentsByPin(
       int pinCode) async {
@@ -156,14 +98,10 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
     DateTime now = new DateTime.now();
     final DateFormat formatter = DateFormat('dd-MM-yyyy');
     final String formatted = formatter.format(now);
-    // var response = await appointmentApi.calendarByPin("110070", formatted);
     var response =
         await appointmentApi.calendarByPin(pinCode.toString(), formatted);
 
     if (response.statusCode == 200) {
-      // If the server did return a 200 OK response,
-      // then parse the JSON.
-      //
       var des1 = BuiltList<SessionCalendarEntrySchema>.from(response
           .data.asMap["centers"]
           .map((value) => cowinApi.serializers
@@ -172,8 +110,6 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
 
       return des1.toList();
     } else {
-      // If the server did not return a 200 OK response,
-      // then throw an exception.
       throw Exception('Failed to get appointments');
     }
   }
@@ -194,7 +130,6 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
 
     for (int i = 0; i < 7; i++) {
       tabs.add(Tab(
-          // text: formatter.format(dateTime)
           child: Text(formatter.format(dateTime),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyText2)));
@@ -233,21 +168,14 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
 
             return DefaultTabController(
               length: tabs.length,
-              // The Builder widget is used to have a different BuildContext to access
-              // closest DefaultTabController.
               child: Builder(builder: (BuildContext context) {
                 final TabController tabController =
                     DefaultTabController.of(context);
                 tabController.addListener(() {
-                  if (!tabController.indexIsChanging) {
-                    // Your code goes here.
-                    // To get index of current tab use tabController.index
-                  }
+                  if (!tabController.indexIsChanging) {}
                 });
                 return Scaffold(
                   appBar: AppBar(
-                    // Here we take the value from the MyHomePage object that was created by
-                    // the App.build method, and use it to set our appbar title.
                     title: Text("Appointments",
                         style: Theme.of(context).textTheme.subtitle2),
                     backgroundColor: Colors.grey.shade800,
@@ -280,12 +208,6 @@ class _AppointmentListTabbedViewState extends State<AppointmentListTabbedView>
                                               .textTheme
                                               .subtitle2),
                                     )));
-                            // return Column(children: <Widget>[
-                            //   Text(
-                            //       "Sorry, we couldn't find any appointments for today. Please try again later.",
-                            //       textAlign: TextAlign.center,
-                            //       style: Theme.of(context).textTheme.subtitle2)
-                            // ]);
                           } else {
                             return ListView.builder(
                               itemCount: aptsOnDate.length,
